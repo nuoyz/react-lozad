@@ -1,5 +1,6 @@
 import React, { Component } from 'react';
 import ReactDOM from 'react-dom';
+import {getObserverList, getDictionary} from './utils';
 class LazyLoad extends Component {
   isLoaded = element => element.getAttribute('data-loaded') === 'true'
   onIntersection = load => (entries, observer) => {
@@ -15,7 +16,8 @@ class LazyLoad extends Component {
   load = (element) => {
     const rcId = element.getAttribute('data-rcId')
     element.setAttribute('data-loaded', true);
-    const component = window.dictionary[rcId];
+    const dictionary = getDictionary();
+    const component = dictionary[rcId];
     setTimeout(() => {
       component.isVisible = true;
       component.forceUpdate();
@@ -24,22 +26,37 @@ class LazyLoad extends Component {
 
   componentDidMount() {
     const {rootMargin = '0px', threshold = 0, uniqId} = this.props;
-    if (window.IntersectionObserver && !window.observer) {
-      window.observer = new IntersectionObserver(this.onIntersection(this.load), {
-        rootMargin,
-        threshold
-      });
-    }
-    if (window.observer) {
-      window.observer.observe(ReactDOM.findDOMNode(this));
-      if (!window.dictionary) {
-        window.dictionary = {};
+    const root = null;
+    if (window.IntersectionObserver) {
+      let observer
+      const observerList = getObserverList();
+      let obId;
+      const keys = Object.keys(observerList);
+      for (let i = 0; i < observerList.length; i++) {
+        if (observerList[keys[i]].root === root) {
+          obId = keys[i];
+        }
       }
-      window.dictionary[uniqId] = this;
+      if (!obId) {
+        obId = Math.floor(Math.random()* 1000000);
+        observer = new IntersectionObserver(this.onIntersection(this.load), {
+          rootMargin,
+          threshold
+        });
+        observerList[obId] = {root, observer }
+      } else {
+        observer = observerList[obId];
+      }
+
+      observer.observe(ReactDOM.findDOMNode(this));
+      const dictionary = getDictionary();
+      dictionary[uniqId] = this;
       const ele = ReactDOM.findDOMNode(this);
       if (ele.getAttribute) {
         ele.setAttribute('data-rcId', uniqId);
       }
+    } else {
+      console.error('relpace to chrome browser');
     }
   }
   render() {
